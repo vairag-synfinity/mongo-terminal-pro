@@ -1,0 +1,4 @@
+name,email,address.city,age,active,joined,postcode
+Ada Lovelace,ada@example.com,London,36,true,2021-03-01T00:00:00Z,00123
+Grace Hopper,grace@example.com,New York,85,false,2022-07-15T00:00:00Z,10001
+Aryabhata,arya@example.com,Pune,,true,2023-01-10T00:00:00Z,411001

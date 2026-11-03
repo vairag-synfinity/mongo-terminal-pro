@@ -1,0 +1,12 @@
+{
+  "type": "Compass Connections",
+  "version": { "$numberInt": "1" },
+  "connections": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "connectionOptions": { "connectionString": "mongodb://exporter@export.example.com:27017/" },
+      "favorite": { "name": "Exported One" },
+      "connectionSecrets": "ZW5jcnlwdGVk"
+    }
+  ]
+}

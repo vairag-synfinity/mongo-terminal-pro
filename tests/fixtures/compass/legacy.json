@@ -1,0 +1,11 @@
+{
+  "_id": "44444444-4444-4444-8444-444444444444",
+  "name": "Legacy replica",
+  "hostname": "rs1.example.com",
+  "port": 27018,
+  "replicaSet": "rs1",
+  "mongodb_username": "legacyuser",
+  "mongodb_database_name": "admin",
+  "ssl": "SYSTEMCA",
+  "isFavorite": true
+}

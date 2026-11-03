@@ -1,0 +1,98 @@
+{
+  "name": "mongo-terminal-pro",
+  "version": "1.0.0",
+  "description": "Professional, cross-platform interactive MongoDB management in your terminal (TUI). A keyboard-first alternative to MongoDB Compass.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "mongo-terminal": "dist/cli/bin.js",
+    "mtp": "dist/cli/bin.js",
+    "mongo-terminal-pro": "dist/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "start": "node dist/cli/bin.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit tests/cross-platform",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run test:unit && npm run build",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "mongodb",
+    "mongo",
+    "tui",
+    "terminal",
+    "cli",
+    "compass",
+    "database",
+    "ink",
+    "admin"
+  ],
+  "license": "MIT",
+  "author": "Mongo Terminal Pro contributors",
+  "dependencies": {
+    "@inquirer/prompts": "^8.7.5",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.3",
+    "csv-parse": "^7.0.3",
+    "csv-stringify": "^6.9.0",
+    "ink": "^7.1.1",
+    "ink-spinner": "^5.0.0",
+    "mongodb": "^7.8.0",
+    "mongodb-connection-string-url": "^7.0.2",
+    "ora": "^9.4.1",
+    "pino": "^10.4.0",
+    "react": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "^2.1.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@xterm/headless": "^5.5.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "ink-testing-library": "^4.0.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ]
+}

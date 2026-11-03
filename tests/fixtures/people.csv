@@ -1,0 +1,3 @@
+name,age,active,joined,tags,zip
+Ada,36,true,2024-01-02T03:04:05Z,"[1,2]",00123
+Linus,,false,not-a-date,,90210

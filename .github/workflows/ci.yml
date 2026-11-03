@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cross-platform:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:unit
+        env:
+          MTP_DISABLE_KEYRING: '1'
+      - run: npm run build
+      - name: CLI smoke test
+        shell: bash
+        env:
+          MTP_CONFIG_DIR: ${{ runner.temp }}/mtp-config
+          MTP_DISABLE_KEYRING: '1'
+        run: |
+          node dist/cli/bin.js --version
+          node dist/cli/bin.js --help
+          node dist/cli/bin.js doctor
+          node dist/cli/bin.js tools
+          node dist/cli/bin.js connections list
+      - run: npm pack --dry-run
+
+  integration:
+    name: Integration (MongoDB ${{ matrix.mongo }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mongo: ['7.0', '8.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Start disposable MongoDB replica set
+        run: |
+          docker run -d --name mtp-test -p 127.0.0.1:27099:27099 mongo:${{ matrix.mongo }} mongod --replSet rs0 --port 27099 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mtp-test mongosh --port 27099 --quiet --eval 'db.runCommand({ping:1}).ok' && break; sleep 1; done
+          docker exec mtp-test mongosh --port 27099 --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27099"}]})'
+          sleep 5
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+        env:
+          MTP_TEST_MONGODB_URI: mongodb://localhost:27099/?directConnection=true
+          MTP_DISABLE_KEYRING: '1'

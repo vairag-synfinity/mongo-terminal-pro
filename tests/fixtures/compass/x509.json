@@ -1,0 +1,9 @@
+{
+  "connectionInfo": {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "connectionOptions": {
+      "connectionString": "mongodb://CN%3Dclient@secure.example.com:27017/?authMechanism=MONGODB-X509&tls=true"
+    },
+    "favorite": { "name": "X509" }
+  }
+}
