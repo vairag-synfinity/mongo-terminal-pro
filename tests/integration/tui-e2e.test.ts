@@ -36,7 +36,7 @@ describe.skipIf(!ptyAvailable)('TUI (offline) in a pseudo-terminal', () => {
       await s.press('m', 800);
       screen = await s.waitFor('Main menu');
       expect(screen).toContain('connect first');
-      await s.press('12', 900);
+      await s.press('13', 900);
       await s.waitFor('Settings');
       await s.press(KEYS.esc, 300);
       await s.waitFor('Main menu');

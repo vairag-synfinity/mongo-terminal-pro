@@ -145,6 +145,31 @@ describe.skipIf(!built || !integrationEnabled())('CLI against MongoDB', () => {
     expect(await admin.db(db).collection('copy').countDocuments()).toBe(40);
   });
 
+  it('copies databases, exports all databases and imports folders', async () => {
+    const copyDb = `${db}_copy`.slice(0, 60);
+    const denied = await cli(['copy', '--from-db', db, '--to-db', copyDb], env, true);
+    expect(denied.stderr).toMatch(/--write/);
+    await cli(
+      ['copy', '--from-db', db, '--to-db', copyDb, '--collections', 'people', '--write', '--yes'],
+      env,
+    );
+    expect(await admin.db(copyDb).collection('people').countDocuments()).toBe(40);
+    const again = await cli(
+      ['copy', '--from-db', db, '--to-db', copyDb, '--collections', 'people', '--write', '--yes'],
+      env,
+      true,
+    );
+    expect(again.code).toBe(2);
+    expect(again.stdout + again.stderr).toMatch(/duplicate _id/);
+    const out = path.join(tmpDir(), 'all');
+    await cli(['export', '--all-databases', '--out', out], env);
+    expect((await fs.readdir(path.join(out, db))).sort()).toContain('people.json');
+    const folderDb = `${db}_dir`.slice(0, 60);
+    await cli(['import', '--dir', path.join(out, db), '--db', folderDb, '--write', '--yes'], env);
+    expect(await admin.db(folderDb).collection('people').countDocuments()).toBe(40);
+    await dropTestDatabases(admin, [copyDb, folderDb]);
+  });
+
   it('protects production connections in non-interactive mode', async () => {
     const prodEnv = { ...env, MTP_CONFIG_DIR: tmpDir() };
     const n = stripCredentials(TEST_URI as string);

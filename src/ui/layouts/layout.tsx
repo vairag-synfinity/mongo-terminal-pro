@@ -53,6 +53,7 @@ const SCREEN_LABELS: Record<Route['screen'], string> = {
   help: 'Help',
   picker: 'Select',
   workspace: 'Workspace',
+  copy: 'Copy / Migrate',
 };
 
 export function routeLabel(route: Route): string {

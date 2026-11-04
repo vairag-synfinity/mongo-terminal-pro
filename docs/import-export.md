@@ -116,3 +116,16 @@ the dashboard) every problem is written as one JSON line with its record number 
 `--engine tools` delegates a single-collection JSON/CSV import or export to `mongoimport` /
 `mongoexport`, passing credentials through a temporary private config file. The built-in engine is
 the default because it validates before writing and preserves types consistently.
+
+## Whole databases and folders
+
+- **Export all databases:** `mtp export --all-databases --out ./all/` (dashboard: `X` in the tree, or
+  Export → Scope → ALL databases) writes `./all/<database>/<collection>.<ext>`; system databases
+  are skipped.
+- **Import a folder:** `mtp import --dir ./shop/ --db shop --write` imports every `.json`, `.jsonl`,
+  `.csv` or `.bson` file as a collection named after the file (`users.json` → `users`; mongodump
+  `*.metadata.json` files are ignored). `--all-databases` treats each sub-folder as a database.
+  Every file is validated first; if any record is invalid nothing is written (unless
+  `--skip-invalid`). Empty files still create empty collections.
+- **Copy without files:** `mtp copy` copies collections directly between databases or connections
+  (see [commands.md](commands.md#copy)).

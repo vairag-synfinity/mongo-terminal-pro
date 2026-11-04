@@ -36,6 +36,12 @@ export const Operations = {
   importUpsert: { name: 'Import with upsert (may replace existing documents)', risk: 'destructive' },
   aggregationWrite: { name: 'Aggregation with $out/$merge', risk: 'destructive' },
   restore: { name: 'Restore backup', risk: 'write' },
+  copyData: { name: 'Copy collections into the target database', risk: 'write' },
+  copyDrop: { name: 'Copy collections, dropping existing target collections first', risk: 'destructive' },
+  copyReplace: {
+    name: 'Copy collections, replacing target documents with the same _id',
+    risk: 'destructive',
+  },
   restoreDrop: { name: 'Restore backup dropping existing collections', risk: 'destructive' },
 } as const satisfies Record<string, OperationDescriptor>;
 
@@ -115,6 +121,22 @@ export class PermissionManager {
       return { allowed: true, confirmation: this.profile.production ? 'type-name' : 'confirm' };
     }
     return { allowed: true, confirmation: this.profile.production ? 'confirm' : 'none' };
+  }
+
+  /**
+   * Permission to write into another saved connection (e.g. the target of a copy). The same
+   * connection follows the normal session rules; another connection needs an explicit
+   * confirmation, typing its name when it is production or the operation is destructive.
+   */
+  checkTarget(op: OperationDescriptor, target: ConnectionProfile): PermissionDecision {
+    if (this.profile && target.id === this.profile.id) return this.check(op);
+    if (target.readOnlyLocked) {
+      return { allowed: false, reason: `Target "${target.name}" is locked read-only.`, confirmation: 'none' };
+    }
+    return {
+      allowed: true,
+      confirmation: target.production || op.risk === 'destructive' ? 'type-name' : 'confirm',
+    };
   }
 
   /** Throws if the operation is not permitted. Used by services as a last line of defence. */

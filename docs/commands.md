@@ -55,7 +55,7 @@ mtp query --db <db> --collection <c> [--filter '<json>'] [--projection '<json>']
 ## export
 
 ```bash
-mtp export --db <db> [--collection <c>] [--format json|csv|bson] [--out <file|dir>]
+mtp export (--db <db> [--collection <c>] | --all-databases) [--format json|csv|bson] [--out <file|dir>]
            [--filter '<json>'] [--sort '<json>'] [--fields a,b.c] [--limit <n>]
            [--json-mode relaxed|canonical|plain] [--layout array|jsonl] [--batch-size <n>]
            [--overwrite] [--engine builtin|tools] [--explain-json]
@@ -66,6 +66,7 @@ Omit `--collection` to export every collection of the database into the `--out` 
 ## import
 
 ```bash
+mtp import --dir <folder> (--db <db> | --all-databases) --write [--mode ...] [--skip-invalid] [--dry-run]
 mtp import --db <db> --collection <c> --file <path> --write
            [--format json|csv|bson] [--mode insert|upsert] [--upsert-fields a,b]
            [--duplicates abort|skip] [--batch-size <n>] [--unordered] [--skip-invalid]
@@ -75,6 +76,20 @@ mtp import --db <db> --collection <c> --file <path> --write
 
 `--write` is required unless `--dry-run` is given. For production connections pass
 `--confirm "<connection name>"` (or answer the prompt).
+
+## copy
+
+```bash
+mtp copy --from-db <db> [--to-db <db>] [--collections a,b] [--to-connection <name>]
+         [--duplicates abort|skip|replace] [--drop] [--no-indexes] [--no-views] [--batch-size <n>]
+         --write [--confirm <name>] [-y]
+mtp copy --all-databases --to-connection <name> --write [...]
+```
+
+Copies from the active connection (`-c`). On the same connection `--to-db` is required. Writing into
+another connection asks for confirmation; non-interactively pass `-y`, or `--confirm "<target
+name>"` when the target is production or the copy is destructive (`--drop`, `--duplicates replace`).
+`MTP_TARGET_PASSWORD` supplies the target password when it is not stored.
 
 ## backup, restore, backups, tools
 

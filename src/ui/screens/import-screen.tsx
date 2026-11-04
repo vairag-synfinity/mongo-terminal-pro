@@ -33,8 +33,9 @@ import { useNamespaceSuggestions } from '../hooks/use-namespaces.js';
 import { useHints, useLayout } from '../layouts/layout.js';
 import { col } from '../themes/theme.js';
 import { confirmOperation } from './confirm-operation.js';
+import { FolderImportView } from './folder-import-view.js';
 
-type Step = 'source' | 'browse' | 'preview' | 'options' | 'running' | 'summary';
+type Step = 'source' | 'browse' | 'folder' | 'preview' | 'options' | 'running' | 'summary';
 const CSV_TYPES: CsvFieldType[] = [
   'auto',
   'string',
@@ -67,13 +68,13 @@ interface OptionsForm {
   writeErrorReport: boolean;
 }
 
-export function ImportScreen({ params }: { params: { db?: string; collection?: string } }) {
+export function ImportScreen({ params }: { params: { db?: string; collection?: string; folder?: boolean } }) {
   const { app, nav, theme, settings, symbols, notify, notifyError } = useUi();
   const state = useAppState();
   const screenActive = useScreenActive();
   const layout = useLayout();
   const dialog = useDialog(layout.width);
-  const [step, setStep] = useState<Step>('source');
+  const [step, setStep] = useState<Step>(params.folder ? 'folder' : 'source');
   const [source, setSource] = useDraft<SourceForm>('import:source', () => ({
     file: '',
     format: 'auto',
@@ -273,6 +274,9 @@ export function ImportScreen({ params }: { params: { db?: string; collection?: s
   if (dialog.open) return <Box justifyContent="center">{dialog.element}</Box>;
   if (loading) return <Loading label="Reading file preview…" />;
 
+  if (step === 'folder')
+    return <FolderImportView initialDb={params.db ?? source.database} onBack={() => setStep('source')} />;
+
   if (step === 'browse') {
     return (
       <Panel title="Choose a file to import" focus>
@@ -364,6 +368,7 @@ export function ImportScreen({ params }: { params: { db?: string; collection?: s
           onCancel={() => nav.back()}
           actions={[
             { key: 'browse', label: 'Browse…', onPress: () => setStep('browse') },
+            { key: 'folder', label: 'Import a folder…', onPress: () => setStep('folder') },
             { key: 'preview', label: 'Preview', tone: 'primary', onPress: () => void loadPreview(undefined) },
             { key: 'cancel', label: 'Cancel', onPress: () => nav.back() },
           ]}

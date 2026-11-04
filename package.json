@@ -1,6 +1,6 @@
 {
   "name": "mongo-terminal-pro",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Professional, cross-platform interactive MongoDB management in your terminal (TUI). A keyboard-first alternative to MongoDB Compass.",
   "type": "module",
   "main": "./dist/index.js",

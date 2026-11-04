@@ -18,7 +18,6 @@ import {
   collectFromProjectDirectory,
 } from '../connection/env-discovery.js';
 import { buildConnectionFromDraft, describeHosts, detectKind } from '../connection/manual-connection.js';
-import type { Application } from '../core/application.js';
 import { AppError, formatErrorLine } from '../core/error-handler.js';
 import { Operations } from '../security/permission-manager.js';
 import { maskConnectionString } from '../security/sensitive-data-filter.js';
@@ -26,7 +25,6 @@ import { ExportManager, JSON_MODE_EXPLANATION, extensionFor } from '../transfer/
 import { ImportManager, type ImportSummary } from '../transfer/import-manager.js';
 import { detectFormat } from '../transfer/import-validator.js';
 import type { JsonLayout, JsonMode } from '../transfer/json-handler.js';
-import type { TransferProgress } from '../transfer/transfer-progress.js';
 import {
   formatBytes,
   formatCount,
@@ -38,50 +36,18 @@ import {
 import { getPlatformInfo } from '../utils/platform.js';
 import { detectCapabilities } from '../utils/terminal.js';
 import { oneOf, parseFormat, parseJsonObjectArg, parseList, parsePositiveInt } from './arguments.js';
+import { importFolderCommand, registerCopyCommand } from './bulk-commands.js';
+import { globals, progressText, withConnection, type AppFactory } from './helpers.js';
 import { c, fail, info, printJson, success, sym, table, warn } from './output.js';
 import {
   confirmKind,
   confirmOperation,
-  connectResolved,
   enableCliWrites,
   isInteractive,
   resolveConnection,
 } from './session.js';
 
-export type AppFactory = () => Promise<Application>;
-
-interface GlobalOpts {
-  connection?: string;
-}
-
-function globals(cmd: Command): GlobalOpts {
-  return cmd.optsWithGlobals() as GlobalOpts;
-}
-
-async function withConnection<T>(app: Application, cmd: Command, fn: () => Promise<T>): Promise<T> {
-  const resolved = await resolveConnection(app, globals(cmd).connection);
-  const spinner = isInteractive()
-    ? ora({ text: `Connecting to ${resolved.profile.name}…`, stream: process.stderr }).start()
-    : undefined;
-  try {
-    await connectResolved(app, resolved);
-    spinner?.stop();
-  } catch (error) {
-    spinner?.fail(`Could not connect to ${resolved.profile.name}`);
-    throw error;
-  }
-  return fn();
-}
-
-function progressText(p: TransferProgress): string {
-  const total = p.total !== undefined ? `/${p.totalIsEstimate ? '~' : ''}${formatNumber(p.total)}` : '';
-  const bytes = p.totalBytes
-    ? ` ${formatBytes(p.bytes)}/${formatBytes(p.totalBytes)}`
-    : p.bytes
-      ? ` ${formatBytes(p.bytes)}`
-      : '';
-  return `${p.phase} ${formatNumber(p.processed)}${total}${bytes}${p.current ? ` · ${p.current}` : ''}`;
-}
+export type { AppFactory } from './helpers.js';
 
 export function registerCommands(
   program: Command,
@@ -551,7 +517,7 @@ export function registerCommands(
         await withConnection(app, cmd, async () => {
           const settings = await app.settings();
           const { parseQuery } = await import('../database/query-manager.js');
-          const { EJSON } = await import('bson');
+          const { EJSON } = await import('../utils/bson.js');
           const limits = { resultLimit: settings.queryResultLimit, timeoutMs: settings.queryTimeoutMs };
           const q = parseQuery(
             {
@@ -582,8 +548,9 @@ export function registerCommands(
   // ---------------------------------------------------------------------------------------------
   program
     .command('export')
-    .description('export a collection, query results, or a whole database (JSON, CSV, BSON)')
-    .requiredOption('--db <database>', 'database name')
+    .description('export a collection, query results, a whole database or every database (JSON, CSV, BSON)')
+    .option('--db <database>', 'database name')
+    .option('--all-databases', 'export every database: <out>/<database>/<collection>.<ext>')
     .option('--collection <name>', 'collection (omit to export every collection of the database)')
     .addOption(new Option('--format <format>', 'json | csv | bson').argParser(parseFormat).default('json'))
     .option('--out <path>', 'output file (collection) or directory (database)')
@@ -614,23 +581,29 @@ export function registerCommands(
         console.log(JSON_MODE_EXPLANATION.join('\n'));
         return;
       }
+      if (!opts.db && !opts.allDatabases)
+        throw new AppError('Pass --db <database> or --all-databases', 'VALIDATION');
+      if (opts.allDatabases && opts.collection)
+        throw new AppError('--collection cannot be combined with --all-databases', 'VALIDATION');
       const app = await getApp();
       const settings = await app.settings();
       const baseDir = settings.defaultExportDir || app.paths.exportsDir;
       const output =
         opts.out ??
-        (opts.collection
-          ? path.join(
-              baseDir,
-              `${opts.db}.${opts.collection}_${timestampForFilename()}${extensionFor(opts.format, opts.layout)}`,
-            )
-          : path.join(baseDir, `${opts.db}_${timestampForFilename()}`));
+        (opts.allDatabases
+          ? path.join(baseDir, `all-databases_${timestampForFilename()}`)
+          : opts.collection
+            ? path.join(
+                baseDir,
+                `${opts.db}.${opts.collection}_${timestampForFilename()}${extensionFor(opts.format, opts.layout)}`,
+              )
+            : path.join(baseDir, `${opts.db}_${timestampForFilename()}`));
       await withConnection(app, cmd, async () => {
         if (opts.engine === 'tools') {
-          if (!opts.collection || opts.format === 'bson')
+          if (!opts.db || !opts.collection || opts.format === 'bson')
             throw new AppError('The tools engine exports one collection as json or csv', 'VALIDATION');
           const resolved = await resolveConnection(app, globals(cmd).connection);
-          const { EJSON } = await import('bson');
+          const { EJSON } = await import('../utils/bson.js');
           const result = await mongoexport(resolved.profile, resolved.password, {
             database: opts.db,
             collection: opts.collection,
@@ -652,7 +625,8 @@ export function registerCommands(
           : undefined;
         const manager = new ExportManager(app.connectionManager.getClient());
         const summary = await manager.run({
-          database: opts.db,
+          database: opts.db ?? '',
+          allDatabases: opts.allDatabases,
           collection: opts.collection,
           format: opts.format,
           output,
@@ -673,7 +647,12 @@ export function registerCommands(
         console.log(
           table(
             ['Collection', 'Documents', 'Size', 'File'],
-            summary.files.map((f) => [f.collection, formatNumber(f.documents), formatBytes(f.bytes), f.path]),
+            summary.files.map((f) => [
+              f.database ? `${f.database}.${f.collection}` : f.collection,
+              formatNumber(f.documents),
+              formatBytes(f.bytes),
+              f.path,
+            ]),
           ),
         );
         for (const s of summary.skipped) warn(`Skipped ${s.collection}: ${s.reason}`);
@@ -685,10 +664,15 @@ export function registerCommands(
 
   program
     .command('import')
-    .description('import documents from a JSON, JSONL, CSV or BSON file (requires --write)')
-    .requiredOption('--db <database>', 'target database')
-    .requiredOption('--collection <name>', 'target collection (created if missing)')
-    .requiredOption('--file <path>', 'input file')
+    .description('import a JSON, JSONL, CSV or BSON file — or a whole folder — (requires --write)')
+    .option('--db <database>', 'target database')
+    .option('--collection <name>', 'target collection (created if missing)')
+    .option('--file <path>', 'input file')
+    .option('--dir <folder>', 'import every file of a folder (collection = file name) into --db')
+    .option(
+      '--all-databases',
+      'with --dir: each sub-folder is a database (an "export --all-databases" folder)',
+    )
     .addOption(
       new Option('--format <format>', 'json | csv | bson (default: from extension)').argParser(parseFormat),
     )
@@ -719,27 +703,36 @@ export function registerCommands(
         .default('builtin'),
     )
     .action(async (opts: ImportCliOptions, cmd: Command) => {
+      if (opts.dir) return importFolderCommand(await getApp(), cmd, opts);
+      if (!opts.db || !opts.collection || !opts.file)
+        throw new AppError(
+          'Pass --db, --collection and --file (or --dir <folder> to import a whole folder)',
+          'VALIDATION',
+        );
+      const db = opts.db;
+      const collection = opts.collection;
+      const file = opts.file;
       const app = await getApp();
       const settings = await app.settings();
       await withConnection(app, cmd, async () => {
         if (!opts.dryRun) {
           await enableCliWrites(app, opts, 'Import');
           const op = opts.mode === 'upsert' ? Operations.importUpsert : Operations.importInsert;
-          await confirmOperation(app, op, `${opts.file} → ${opts.db}.${opts.collection}`, opts);
+          await confirmOperation(app, op, `${file} → ${db}.${collection}`, opts);
         }
         if (opts.engine === 'tools') {
-          const format = opts.format ?? detectFormat(opts.file);
+          const format = opts.format ?? detectFormat(file);
           if (format !== 'json' && format !== 'csv')
             throw new AppError('The tools engine imports json or csv', 'VALIDATION');
           const resolved = await resolveConnection(app, globals(cmd).connection);
           const result = await mongoimport(resolved.profile, resolved.password, app.permissions, {
-            database: opts.db,
-            collection: opts.collection,
+            database: db,
+            collection: collection,
             format,
-            file: opts.file,
+            file: file,
             mode: opts.mode,
             upsertFields: opts.upsertFields,
-            jsonArray: format === 'json' && !/\.(jsonl|ndjson)$/i.test(opts.file),
+            jsonArray: format === 'json' && !/\.(jsonl|ndjson)$/i.test(file),
             stopOnError: !opts.unordered,
             onOutput: (l) => console.error(c.gray(l)),
           });
@@ -752,10 +745,10 @@ export function registerCommands(
           : undefined;
         const manager = new ImportManager(app.connectionManager.getClient(), app.permissions);
         const summary = await manager.run({
-          file: opts.file,
+          file: file,
           format: opts.format,
-          database: opts.db,
-          collection: opts.collection,
+          database: db,
+          collection: collection,
           mode: opts.mode,
           upsertKeys: opts.upsertFields,
           duplicates: opts.duplicates,
@@ -775,6 +768,8 @@ export function registerCommands(
         if (summary.aborted || summary.failed > 0) process.exitCode = 2;
       });
     });
+
+  registerCopyCommand(program, getApp);
 
   // ---------------------------------------------------------------------------------------------
   program
@@ -1062,7 +1057,8 @@ export function registerCommands(
 }
 
 interface ExportCliOptions {
-  db: string;
+  db?: string;
+  allDatabases?: boolean;
   collection?: string;
   format: 'json' | 'csv' | 'bson';
   out?: string;
@@ -1079,9 +1075,11 @@ interface ExportCliOptions {
 }
 
 interface ImportCliOptions {
-  db: string;
-  collection: string;
-  file: string;
+  db?: string;
+  collection?: string;
+  file?: string;
+  dir?: string;
+  allDatabases?: boolean;
   format?: 'json' | 'csv' | 'bson';
   mode: 'insert' | 'upsert';
   upsertFields?: string[];

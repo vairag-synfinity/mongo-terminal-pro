@@ -31,6 +31,8 @@ import { col } from '../themes/theme.js';
 
 interface Params {
   db?: string;
+  /** Open with a scope preselected (workspace shortcuts). */
+  scope?: 'collection' | 'database' | 'all';
   collection?: string;
   filter?: string;
   sort?: string;
@@ -39,7 +41,7 @@ interface Params {
 
 interface ExportForm {
   database: string;
-  scope: 'collection' | 'database';
+  scope: 'collection' | 'database' | 'all';
   collection: string;
   format: TransferFormat;
   jsonMode: JsonMode;
@@ -62,10 +64,10 @@ export function ExportScreen({ params }: { params: Params }) {
   const layout = useLayout();
   const dialog = useDialog(layout.width);
   const [form, setForm] = useDraft<ExportForm>(
-    `export:${params.db ?? ''}.${params.collection ?? ''}`,
+    `export:${params.scope ?? ''}:${params.db ?? ''}.${params.collection ?? ''}`,
     () => ({
       database: params.db ?? state.database ?? '',
-      scope: 'collection',
+      scope: params.scope ?? (params.collection || !params.db ? 'collection' : 'database'),
       collection: params.collection ?? state.collection ?? '',
       format: settings.lastExportFormat ?? 'json',
       jsonMode: 'relaxed',
@@ -93,10 +95,13 @@ export function ExportScreen({ params }: { params: Params }) {
           baseDir,
           `${form.database}.${form.collection}_${timestampForFilename()}${extensionFor(form.format, form.layout)}`,
         )
-      : path.join(baseDir, `${form.database}_${timestampForFilename()}`);
+      : form.scope === 'all'
+        ? path.join(baseDir, `all-databases_${timestampForFilename()}`)
+        : path.join(baseDir, `${form.database}_${timestampForFilename()}`);
 
   const run = async () => {
-    if (!form.database.trim()) return notifyError(new Error('Database is required'), 'Missing database');
+    if (form.scope !== 'all' && !form.database.trim())
+      return notifyError(new Error('Database is required'), 'Missing database');
     if (form.scope === 'collection' && !form.collection.trim())
       return notifyError(new Error('Collection is required'), 'Missing collection');
     let filter, sort;
@@ -115,6 +120,7 @@ export function ExportScreen({ params }: { params: Params }) {
       const manager = new ExportManager(app.connectionManager.getClient());
       const result = await manager.run({
         database: form.database.trim(),
+        allDatabases: form.scope === 'all',
         collection: form.scope === 'collection' ? form.collection.trim() : undefined,
         format: form.format,
         output,
@@ -193,7 +199,11 @@ export function ExportScreen({ params }: { params: Params }) {
     const p = progress;
     return (
       <Panel
-        title={`Exporting ${form.database}${form.scope === 'collection' ? `.${form.collection}` : ' (all collections)'}`}
+        title={
+          form.scope === 'all'
+            ? 'Exporting all databases'
+            : `Exporting ${form.database}${form.scope === 'collection' ? `.${form.collection}` : ' (all collections)'}`
+        }
         focus
       >
         <ProgressBar
@@ -250,6 +260,7 @@ export function ExportScreen({ params }: { params: Params }) {
             suggestions: ns.databases,
             suggestionsLoading: ns.loadingDatabases,
             newValueLabel: 'not found',
+            hidden: form.scope === 'all',
           },
           {
             key: 'scope',
@@ -258,6 +269,7 @@ export function ExportScreen({ params }: { params: Params }) {
             options: [
               { label: 'single collection', value: 'collection' },
               { label: 'entire database (one file per collection)', value: 'database' },
+              { label: 'ALL databases (one folder per database)', value: 'all' },
             ],
           },
           {

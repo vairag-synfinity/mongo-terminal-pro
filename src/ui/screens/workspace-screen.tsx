@@ -131,6 +131,9 @@ export function WorkspaceScreen() {
     { key: '←', label: 'collapse' },
     { key: '/', label: 'filter' },
     { key: 'Tab', label: 'pane' },
+    { key: 'C', label: 'copy db' },
+    { key: 'x/X', label: 'export db/all' },
+    { key: 'I', label: 'import folder' },
     { key: 'r', label: 'refresh' },
     { key: 'm', label: 'menu' },
     { key: 'b', label: 'backup' },
@@ -188,8 +191,13 @@ export function WorkspaceScreen() {
         onOpenDatabase={(db) => select({ db }, 'documents', {}, false)}
         onOpenCollection={(db, c) => select({ db, collection: c.name, type: c.type })}
         onEscape={() => nav.back()}
-        onKey={(input) => {
-          if (input === 'm') nav.push('dashboard');
+        onKey={(input, db) => {
+          const target = db ?? selection.db;
+          if (input === 'C') nav.push('copy', { db: target });
+          else if (input === 'x' && target) nav.push('export', { db: target, scope: 'database' });
+          else if (input === 'X') nav.push('export', { scope: 'all' });
+          else if (input === 'I') nav.push('import', { db: target, folder: true });
+          else if (input === 'm') nav.push('dashboard');
           else if (input === 'b') nav.push('backup', { db: selection.db });
           else if (input === 'S') nav.push('monitoring');
           else if (input === ',') nav.push('settings');

@@ -3,6 +3,7 @@ import { constants as fsConstants, createWriteStream, promises as fs } from 'nod
 import path from 'node:path';
 import { finished } from 'node:stream/promises';
 import { CancelledError, ValidationError } from '../core/error-handler.js';
+import { listUserDatabases } from './copy-manager.js';
 import { BsonDocumentWriter } from './bson-handler.js';
 import { CsvDocumentWriter, inferCsvFields } from './csv-handler.js';
 import type { TransferFormat } from './import-validator.js';
@@ -11,6 +12,8 @@ import { ProgressTracker, type ProgressCallback } from './transfer-progress.js';
 
 export interface ExportOptions {
   database: string;
+  /** Export every user database (admin/local/config excluded): <output>/<database>/<collection>.<ext>. */
+  allDatabases?: boolean;
   /** Omit to export every collection of the database (one file per collection). */
   collection?: string;
   format: TransferFormat;
@@ -37,6 +40,8 @@ export interface ExportOptions {
 }
 
 export interface ExportedFile {
+  /** Set for all-databases exports. */
+  database?: string;
   collection: string;
   path: string;
   documents: number;
@@ -132,6 +137,27 @@ export class ExportManager {
     };
     if (!Number.isInteger(options.batchSize) || options.batchSize < 1)
       throw new ValidationError('Batch size must be a positive integer');
+    if (options.allDatabases) {
+      const root = await validateExportPath(options.output, { directory: true });
+      for (const db of await listUserDatabases(this.client)) {
+        if (options.signal?.aborted) throw new CancelledError('Export cancelled');
+        const part = await this.run({
+          ...options,
+          allDatabases: false,
+          database: db,
+          collection: undefined,
+          ids: undefined,
+          output: path.join(root, safeFileName(db)),
+        });
+        summary.files.push(...part.files.map((f) => ({ ...f, database: db })));
+        summary.skipped.push(...part.skipped.map((s) => ({ ...s, collection: `${db}.${s.collection}` })));
+      }
+      summary.totalDocuments = summary.files.reduce((a, f) => a + f.documents, 0);
+      summary.totalBytes = summary.files.reduce((a, f) => a + f.bytes, 0);
+      summary.durationMs = Date.now() - started;
+      summary.completed = true;
+      return summary;
+    }
     if (options.collection) {
       const file = await validateExportPath(options.output, { overwrite: options.overwrite });
       const tracker = new ProgressTracker(options.onProgress, 'exporting');

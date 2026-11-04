@@ -26,7 +26,7 @@ export function Dashboard() {
   useHints([
     { key: '↑↓', label: 'navigate' },
     { key: 'Enter', label: 'select' },
-    { key: '1-12', label: 'jump' },
+    { key: '1-13', label: 'jump' },
     { key: 'Esc', label: 'back' },
   ]);
   useInput(
@@ -96,6 +96,12 @@ export function Dashboard() {
       'Backup / Restore',
       { screen: 'backup', params: {}, needsConnection: true },
       'mongodump / mongorestore with verification',
+    ],
+    [
+      '',
+      'Copy / Migrate',
+      { screen: 'copy', params: {}, needsConnection: true },
+      'Copy collections or whole databases to another database or connection',
     ],
     [
       'ADVANCED',
@@ -180,12 +186,12 @@ export function Dashboard() {
           {profiles.data && profiles.data.length > 0 ? (
             <>
               <Text>Saved connections: {profiles.data.length}</Text>
-              <Muted>Open the Connection Manager (11) to connect.</Muted>
+              <Muted>Open the Connection Manager (12) to connect.</Muted>
             </>
           ) : (
             <>
               <Text>No saved connections yet.</Text>
-              <Muted>Open the Connection Manager (11) to add one manually,</Muted>
+              <Muted>Open the Connection Manager (12) to add one manually,</Muted>
               <Muted>import from MongoDB Compass or from a project .env file.</Muted>
             </>
           )}

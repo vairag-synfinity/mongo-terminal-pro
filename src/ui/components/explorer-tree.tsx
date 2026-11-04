@@ -30,7 +30,8 @@ export interface ExplorerTreeProps {
   onOpenDatabase(db: string): void;
   onOpenCollection(db: string, collection: CollectionSummary): void;
   /** Extra single-key shortcuts (menu, backup, …); return true when handled. */
-  onKey?(input: string): boolean | void;
+  /** `db` is the database of the highlighted row (if any). */
+  onKey?(input: string, db?: string): boolean | void;
   /** Esc when no filter is active. */
   onEscape?(): void;
 }
@@ -227,7 +228,7 @@ export function ExplorerTree({
           onOpenCollection(current.db, current.collection);
         return;
       }
-      onKey?.(input);
+      onKey?.(input, current.db);
     },
     { isActive: focus },
   );

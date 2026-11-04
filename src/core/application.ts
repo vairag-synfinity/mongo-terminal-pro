@@ -1,7 +1,8 @@
 import { ConfigurationManager, HistoryManager } from '../config/configuration.js';
 import type { Settings } from '../config/defaults.js';
 import { getAppPaths, type AppPaths } from '../config/paths.js';
-import { ConnectionManager } from '../connection/connection-manager.js';
+import { MongoClient } from 'mongodb';
+import { buildClientOptions, ConnectionManager } from '../connection/connection-manager.js';
 import { ConnectionStorage } from '../connection/connection-storage.js';
 import type { ConnectionProfile, ServerInfo } from '../connection/connection-types.js';
 import { BackupHistory } from '../backup/backup-history.js';
@@ -88,6 +89,31 @@ export class Application {
       collection: undefined,
     });
     return server;
+  }
+
+  /**
+   * Opens an additional client for another saved connection (e.g. the target of a copy). The
+   * caller owns it and must close it. Uses the stored or session password unless one is given.
+   */
+  async openSecondaryClient(profile: ConnectionProfile, password?: string): Promise<MongoClient> {
+    const settings = await this.config.get();
+    const pass = password ?? (profile.username ? await this.connections.getPassword(profile.id) : undefined);
+    const client = new MongoClient(
+      profile.uri,
+      buildClientOptions(profile, pass, {
+        connectTimeoutMs: settings.connectTimeoutMs,
+        maxPoolSize: settings.maxPoolSize,
+      }),
+    );
+    try {
+      await client.connect();
+      await client.db('admin').command({ ping: 1 });
+      if (password !== undefined) this.credentials.rememberForSession(profile.id, password);
+      return client;
+    } catch (error) {
+      await client.close(true).catch(() => undefined);
+      throw error;
+    }
   }
 
   async disconnect(): Promise<void> {

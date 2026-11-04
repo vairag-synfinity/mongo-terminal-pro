@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-04
+
+### Added
+
+- **Copy / migrate**: copy all or selected collections from one database to another, on the same
+  server or into another saved connection, or every database at once. Keeps BSON types and
+  recreates collection options, views and indexes; duplicates stop, skip or replace; optional drop
+  of target collections. Dashboard: `C` on a database in the tree or Main menu → Copy / Migrate.
+  CLI: `mtp copy`.
+- **Export all databases** (`mtp export --all-databases`, Export → Scope → ALL databases, `X`).
+- **Folder import** for one database or every database (`mtp import --dir`, Import → "Import a
+  folder…", `I`), validating every file before writing.
+- Tree shortcuts on a database: `C` copy, `x` export, `X` export all, `I` import folder.
+
 ## [1.1.0] - 2026-11-04
 
 ### Added

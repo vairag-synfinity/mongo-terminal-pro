@@ -35,6 +35,7 @@ Connections › Local › shop › users                                        
 - [Connections](#connections) — manual, MongoDB Compass discovery, `.env` discovery, saved connections
 - [The interactive UI](#the-interactive-ui)
 - [Import and export](#import-and-export)
+- [Copy, migrate, whole-database import/export](#copy-migrate-and-whole-database-importexport)
 - [Backup and restore](#backup-and-restore)
 - [Security model](#security-model)
 - [CLI commands](#cli-commands)
@@ -280,6 +281,27 @@ documents in insert mode, and write an error report with `--error-report errors.
 
 ---
 
+## Copy, migrate, and whole-database import/export
+
+| Task                                                            | Dashboard (workspace tree, on a database) | CLI                                                             |
+| --------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| Copy a database (all or chosen collections) to another database | `C` → Copy / migrate                      | `mtp copy --from-db shop --to-db shop_copy --write`             |
+| Migrate a database to another server / connection               | `C` → Target connection                   | `mtp copy --from-db shop --to-connection Atlas --write`         |
+| Migrate **all databases** to another connection                 | `C` → What to copy: ALL databases         | `mtp copy --all-databases --to-connection "New server" --write` |
+| Export one database (file per collection)                       | `x`                                       | `mtp export --db shop --out ./shop/`                            |
+| Export **all databases** (folder per database)                  | `X`                                       | `mtp export --all-databases --out ./all/`                       |
+| Import a folder into one database                               | `I`                                       | `mtp import --dir ./shop/ --db shop --write`                    |
+| Import an export-all folder (every database)                    | `I` → one sub-folder per database         | `mtp import --dir ./all/ --all-databases --write`               |
+
+Copying streams documents in batches, keeps exact BSON types, and recreates collection options
+(capped, validators, collation, time series), views and indexes. Existing target documents are
+never overwritten unless you choose it: by default the copy stops at the first `_id` that already
+exists (`--duplicates skip` skips them, `--duplicates replace` replaces them, `--drop` drops target
+collections first). Writing into another connection asks for confirmation — typing its name when it
+is production or the operation is destructive (`--confirm "<name>"` in scripts). Folder imports
+validate every file before writing anything. For a byte-exact server copy you can still use
+**Backup / Restore** (mongodump / mongorestore).
+
 ## Backup and restore
 
 Requires the official [MongoDB Database Tools](https://www.mongodb.com/try/download/database-tools)
@@ -331,20 +353,21 @@ More in [docs/security.md](docs/security.md).
 
 ## CLI commands
 
-| Command                                                                              | Purpose                                                                   |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| `mongo-terminal` / `mtp`                                                             | Open the interactive dashboard (`-c <name>` connects immediately)         |
-| `mtp connect`                                                                        | Open the connection manager                                               |
-| `mtp connections list\|add\|remove\|rename\|default\|favorite\|test\|discover`       | Manage connections                                                        |
-| `mtp status`                                                                         | Connection status and server information                                  |
-| `mtp databases`                                                                      | List accessible databases with statistics                                 |
-| `mtp collections --db <db>`                                                          | List collections                                                          |
-| `mtp query --db <db> --collection <c> --filter '<json>'`                             | Read-only find, printed as Extended JSON                                  |
-| `mtp export --db <db> [--collection <c>] --format json\|csv\|bson`                   | Export                                                                    |
-| `mtp import --db <db> --collection <c> --file <path> --write`                        | Import                                                                    |
-| `mtp backup --db <db>` / `mtp restore --path <dir\|archive> --write` / `mtp backups` | Backup and restore                                                        |
-| `mtp tools` / `mtp doctor`                                                           | Check Database Tools / diagnose terminal, platform and credential storage |
-| `mtp config path\|export <file>\|import <file>`                                      | Configuration location, backup and restore (no secrets)                   |
+| Command                                                                              | Purpose                                                                         |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `mongo-terminal` / `mtp`                                                             | Open the interactive dashboard (`-c <name>` connects immediately)               |
+| `mtp connect`                                                                        | Open the connection manager                                                     |
+| `mtp connections list\|add\|remove\|rename\|default\|favorite\|test\|discover`       | Manage connections                                                              |
+| `mtp status`                                                                         | Connection status and server information                                        |
+| `mtp databases`                                                                      | List accessible databases with statistics                                       |
+| `mtp collections --db <db>`                                                          | List collections                                                                |
+| `mtp query --db <db> --collection <c> --filter '<json>'`                             | Read-only find, printed as Extended JSON                                        |
+| `mtp export --db <db> [--collection <c>] --format json\|csv\|bson`                   | Export                                                                          |
+| `mtp import --db <db> --collection <c> --file <path> --write`                        | Import                                                                          |
+| `mtp copy --from-db <db> [--to-db <db>] [--to-connection <name>] --write`            | Copy / migrate databases and collections (`--all-databases` for every database) |
+| `mtp backup --db <db>` / `mtp restore --path <dir\|archive> --write` / `mtp backups` | Backup and restore                                                              |
+| `mtp tools` / `mtp doctor`                                                           | Check Database Tools / diagnose terminal, platform and credential storage       |
+| `mtp config path\|export <file>\|import <file>`                                      | Configuration location, backup and restore (no secrets)                         |
 
 Global options: `-c, --connection <name>`, `--config-dir <path>`, `--no-color`, `--ascii`,
 `--unicode`, `--theme dark|light`, `--mouse`, `--no-log`. Most listing commands accept `--json`.
