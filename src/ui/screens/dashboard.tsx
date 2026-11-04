@@ -1,4 +1,4 @@
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import React from 'react';
 import { describeHosts } from '../../connection/manual-connection.js';
 import { formatDuration } from '../../utils/formatting.js';
@@ -27,7 +27,14 @@ export function Dashboard() {
     { key: '↑↓', label: 'navigate' },
     { key: 'Enter', label: 'select' },
     { key: '1-12', label: 'jump' },
+    { key: 'Esc', label: 'back' },
   ]);
+  useInput(
+    (_input, key) => {
+      if (key.escape) nav.back();
+    },
+    { isActive: active },
+  );
 
   const db = state.database;
   const collectionPicker = (next: ScreenName, title: string): MenuTarget => ({
@@ -39,8 +46,8 @@ export function Dashboard() {
     [
       'DATABASE MANAGEMENT',
       'Database Explorer',
-      { screen: 'databases', needsConnection: true },
-      'Browse databases and their statistics',
+      { screen: 'workspace', needsConnection: true },
+      'Tree of databases and collections with tabbed collection views',
     ],
     [
       '',

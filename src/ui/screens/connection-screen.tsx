@@ -19,6 +19,7 @@ import { useDialog } from '../components/dialog.js';
 import { ErrorBox, Loading, Muted } from '../components/feedback.js';
 import { Form } from '../components/form.js';
 import { Panel } from '../components/panel.js';
+import { DataTable, type Column } from '../components/data-table.js';
 import { SelectList } from '../components/select-list.js';
 import { useAppState, useScreenActive, useUi } from '../context.js';
 import { useAsync } from '../hooks/use-async.js';
@@ -58,6 +59,10 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
   const refresh = () => setRefreshTick((t) => t + 1);
 
   const connect = async (profile: ConnectionProfile) => {
+    if (state.connected && state.connectionId === profile.id) {
+      nav.push('workspace');
+      return;
+    }
     let password: string | undefined;
     if (profile.username && needsPassword(profile)) {
       password = await app.connections.getPassword(profile.id).catch((e: unknown) => {
@@ -93,7 +98,7 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
       );
       if (profile.production)
         notify('warning', 'Production connection', 'Be careful: this connection is marked as production.');
-      nav.home();
+      nav.push('workspace');
     } catch (e) {
       notifyError(e, `Could not connect to ${profile.name}`);
     } finally {
@@ -178,7 +183,7 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
           { key: 'c', label: 'Compass' },
           { key: 'v', label: '.env' },
           ...(state.connected ? [{ key: 'x', label: 'disconnect' }] : []),
-          { key: 'Esc', label: 'back' },
+          { key: 'Q', label: 'quit' },
         ]
       : [{ key: 'Esc', label: 'back to list' }],
     [view.kind, state.connected],
@@ -188,6 +193,9 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
     (input, key) => {
       if (view.kind !== 'list') return;
       if (key.escape) return nav.back();
+      if (input === 'm') return nav.push('dashboard');
+      if (input === ',') return nav.push('settings');
+      if (input === 'w' && state.connected) return nav.push('workspace');
       if (input === 'a') setView({ kind: 'form' });
       else if (input === 'c') setView({ kind: 'compass' });
       else if (input === 'v') setView({ kind: 'env-setup' });
@@ -268,31 +276,109 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
   if (profiles.error) return <ErrorBox error={profiles.error} />;
   const list = profiles.data?.list ?? [];
   const defaultId = profiles.data?.defaultId;
-  const listWidth = layout.wide ? Math.floor(layout.width * 0.5) : layout.width - 2;
-  const detail = highlighted ? (
+  const showBanner = layout.height >= 22;
+  const banner = showBanner ? (
+    <Box flexDirection="column" marginBottom={1} flexShrink={0}>
+      <Text bold color={col(theme, theme.colors.title)}>
+        {symbols.unicode ? '◆ ' : ''}MONGO TERMINAL PRO
+        <Text color={col(theme, theme.colors.muted)}> · MongoDB management in your terminal</Text>
+      </Text>
+      <Text color={col(theme, theme.colors.muted)}>Made by Vairag Kakadiya</Text>
+    </Box>
+  ) : null;
+
+  const quickActions = (
+    <Box gap={2} flexShrink={0} flexWrap="wrap">
+      <ActionButton k="a" label="New connection" primary />
+      <ActionButton k="c" label="Import from Compass" />
+      <ActionButton k="v" label="From .env" />
+      {state.connected ? <ActionButton k="w" label="Open workspace" /> : null}
+      <ActionButton k="m" label="Menu" />
+      <ActionButton k="," label="Settings" />
+    </Box>
+  );
+
+  if (list.length === 0) {
+    const choices = [
+      {
+        key: 'new',
+        label: 'New connection',
+        value: 'new',
+        description: 'Enter a connection string or host/port (local, Atlas, replica set, TLS)',
+      },
+      {
+        key: 'compass',
+        label: 'Import from MongoDB Compass',
+        value: 'compass',
+        description: 'Reads Compass saved connections (read-only)',
+      },
+      {
+        key: 'env',
+        label: 'Discover from a project .env file',
+        value: 'env',
+        description: 'MONGODB_URI, MONGO_URI, DATABASE_URL …',
+      },
+      {
+        key: 'settings',
+        label: 'Settings',
+        value: 'settings',
+        description: 'Theme, limits, credential storage',
+      },
+      { key: 'help', label: 'Help & keyboard shortcuts', value: 'help' },
+    ];
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        {banner}
+        <Panel title="Welcome — let's add your first connection" focus>
+          <SelectList
+            items={choices}
+            focus={active}
+            height={Math.min(choices.length + 1, layout.height - 6)}
+            width={layout.width - 6}
+            onSelect={(item) => {
+              if (item.value === 'new') setView({ kind: 'form' });
+              else if (item.value === 'compass') setView({ kind: 'compass' });
+              else if (item.value === 'env') setView({ kind: 'env-setup' });
+              else nav.push(item.value as 'settings' | 'help');
+            }}
+          />
+        </Panel>
+      </Box>
+    );
+  }
+
+  const tableWidth = layout.wide ? Math.floor(layout.width * 0.62) : layout.width - 2;
+  const detailsPanel = highlighted ? (
     <Panel title="Details" flexGrow={1}>
-      <Text bold>{highlighted.name}</Text>
-      <Text>Type: {highlighted.kind}</Text>
-      <Text wrap="truncate-end">URI: {maskConnectionString(highlighted.uri)}</Text>
-      <Text>Hosts: {describeHosts(highlighted.uri)}</Text>
-      <Text>
-        User: {highlighted.username ?? '(none)'}
-        {highlighted.authSource ? ` @ ${highlighted.authSource}` : ''}
+      <Text bold wrap="truncate-end">
+        {highlighted.name}
+        {highlighted.id === state.connectionId ? (
+          <Text color={col(theme, theme.colors.success)}> {symbols.bullet} connected</Text>
+        ) : null}
+        {highlighted.id === defaultId ? <Text color={col(theme, theme.colors.muted)}> · default</Text> : null}
       </Text>
-      <Text>
-        Password:{' '}
-        {highlighted.username
-          ? highlighted.hasStoredPassword
-            ? 'stored securely'
-            : 'asked when connecting'
-          : '—'}
-      </Text>
-      <Text>
-        TLS: {highlighted.tls.mode}
-        {highlighted.tls.allowInvalidCertificates ? ' (insecure!)' : ''}
-      </Text>
-      <Text>Source: {highlighted.source}</Text>
-      <Text>Last used: {highlighted.lastUsedAt ? formatDateTime(highlighted.lastUsedAt) : 'never'}</Text>
+      <KV k="URI" v={maskConnectionString(highlighted.uri)} />
+      <KV k="Type" v={highlighted.kind} />
+      <KV
+        k="User"
+        v={`${highlighted.username ?? '(none)'}${highlighted.authSource ? ` @ ${highlighted.authSource}` : ''}`}
+      />
+      <KV
+        k="Password"
+        v={
+          highlighted.username
+            ? highlighted.hasStoredPassword
+              ? 'stored securely'
+              : 'asked when connecting'
+            : '—'
+        }
+      />
+      <KV
+        k="TLS"
+        v={`${highlighted.tls.mode}${highlighted.tls.allowInvalidCertificates ? ' (insecure!)' : ''}`}
+      />
+      <KV k="Last used" v={highlighted.lastUsedAt ? formatDateTime(highlighted.lastUsedAt) : 'never'} />
+      <KV k="Source" v={highlighted.source} />
       {highlighted.production ? (
         <Text color={col(theme, theme.colors.error)}>{symbols.warning} Production connection</Text>
       ) : null}
@@ -303,39 +389,92 @@ export function ConnectionScreen({ params }: { params: { autoConnect?: string } 
     </Panel>
   ) : null;
 
+  const columns: Column<ConnectionProfile>[] = [
+    {
+      key: 'mark',
+      title: ' ',
+      width: 2,
+      render: (p) => (p.id === state.connectionId ? symbols.bullet : p.favorite ? symbols.star : ''),
+      color: (p) => (p.id === state.connectionId ? theme.colors.success : theme.colors.warning),
+    },
+    {
+      key: 'name',
+      title: 'Name',
+      minWidth: 14,
+      render: (p) => p.name,
+      color: (p) => (p.production ? theme.colors.warning : undefined),
+    },
+    {
+      key: 'kind',
+      title: 'Type',
+      width: 12,
+      render: (p) => (p.production ? `${p.kind} PROD` : p.kind),
+      priority: 3,
+    },
+    { key: 'hosts', title: 'Host', minWidth: 14, render: (p) => describeHosts(p.uri), priority: 4 },
+    { key: 'user', title: 'User', width: 12, render: (p) => p.username ?? '—', priority: 1 },
+    {
+      key: 'used',
+      title: 'Last used',
+      width: 10,
+      render: (p) => (p.lastUsedAt ? formatDateTime(p.lastUsedAt).slice(0, 10) : 'never'),
+      priority: 2,
+    },
+  ];
+
   return (
-    <Box flexDirection={layout.wide ? 'row' : 'column'}>
-      <Panel title={`Saved connections (${list.length})`} focus width={listWidth}>
-        <SelectList
-          items={list.map((p) => ({
-            key: p.id,
-            label: `${p.id === state.connectionId ? `${symbols.bullet} ` : ''}${p.favorite ? `${symbols.star} ` : ''}${p.name}`,
-            value: p,
-            hint: [p.id === defaultId ? 'default' : '', p.production ? 'PROD' : '', p.kind]
-              .filter(Boolean)
-              .join(' '),
-            color:
-              p.id === state.connectionId
-                ? theme.colors.success
-                : p.production
-                  ? theme.colors.warning
-                  : undefined,
-          }))}
-          focus={active}
-          height={Math.max(
-            3,
-            layout.wide ? layout.height - 3 : Math.min(list.length + 1, layout.height - 14),
-          )}
-          width={listWidth - 4}
-          searchable
-          showDescription={false}
-          emptyText="No saved connections — press a to add, c to import from Compass, v for .env files"
-          onHighlight={(item) => setHighlighted(item?.value)}
-          onSelect={(item) => void connect(item.value)}
-        />
-      </Panel>
-      {!layout.compact || layout.wide ? detail : null}
+    <Box flexDirection="column" paddingX={showBanner ? 1 : 0}>
+      {banner}
+      <Box flexDirection={layout.wide ? 'row' : 'column'}>
+        <Panel title={`Connections (${list.length})`} right="Enter to connect" focus width={tableWidth}>
+          <DataTable
+            columns={columns}
+            rows={list}
+            rowKey={(p) => p.id}
+            focus={active}
+            height={Math.max(
+              3,
+              layout.wide
+                ? layout.height - (showBanner ? 9 : 6)
+                : Math.min(list.length + 2, layout.height - (showBanner ? 18 : 14)),
+            )}
+            width={tableWidth - 4}
+            initialIndex={Math.max(
+              0,
+              list.findIndex((p) => p.id === state.connectionId),
+            )}
+            onHighlight={(p) => setHighlighted(p)}
+            onSelect={(p) => void connect(p)}
+          />
+        </Panel>
+        {!layout.compact || layout.wide ? detailsPanel : null}
+      </Box>
+      {quickActions}
     </Box>
+  );
+}
+
+function KV({ k, v }: { k: string; v: string }) {
+  const { theme } = useUi();
+  return (
+    <Text wrap="truncate-end">
+      <Text color={col(theme, theme.colors.muted)}>{k.padEnd(10)}</Text>
+      {v}
+    </Text>
+  );
+}
+
+function ActionButton({ k, label, primary }: { k: string; label: string; primary?: boolean }) {
+  const { theme } = useUi();
+  return (
+    <Text>
+      <Text inverse bold color={col(theme, primary ? theme.colors.primary : theme.colors.accent)}>
+        {` ${k} `}
+      </Text>
+      <Text color={col(theme, primary ? theme.colors.primary : theme.colors.text)} bold={primary}>
+        {` ${label}`}
+      </Text>
+    </Text>
   );
 }
 

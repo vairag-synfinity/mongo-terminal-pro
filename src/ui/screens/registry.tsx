@@ -16,6 +16,7 @@ import { MonitoringScreen } from './monitoring-screen.js';
 import { PickerScreen } from './picker-screen.js';
 import { QueryScreen } from './query-screen.js';
 import { SettingsScreen } from './settings-screen.js';
+import { WorkspaceScreen } from './workspace-screen.js';
 
 /** Maps a route to its screen. The route key forces a fresh component per navigation. */
 export function renderScreen(route: Route): React.ReactNode {
@@ -52,6 +53,8 @@ export function renderScreen(route: Route): React.ReactNode {
       return <SettingsScreen key={route.key} />;
     case 'help':
       return <HelpScreen key={route.key} />;
+    case 'workspace':
+      return <WorkspaceScreen key={route.key} />;
     case 'picker':
       return <PickerScreen key={route.key} params={p} />;
   }

@@ -34,7 +34,8 @@ export type ScreenName =
   | 'monitoring'
   | 'settings'
   | 'help'
-  | 'picker';
+  | 'picker'
+  | 'workspace';
 
 export interface Route {
   screen: ScreenName;

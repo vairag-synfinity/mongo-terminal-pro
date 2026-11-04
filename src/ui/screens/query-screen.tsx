@@ -17,6 +17,7 @@ import { SelectList } from '../components/select-list.js';
 import { useAppState, useScreenActive, useUi } from '../context.js';
 import { useAsync } from '../hooks/use-async.js';
 import { useDraft } from '../hooks/use-draft.js';
+import { useNamespaceSuggestions } from '../hooks/use-namespaces.js';
 import { useHints, useLayout } from '../layouts/layout.js';
 import { col } from '../themes/theme.js';
 
@@ -73,6 +74,7 @@ export function QueryScreen({ params }: { params: Params }) {
     update: '{ $set: { } }',
     distinctField: '',
   }));
+  const ns = useNamespaceSuggestions(form.database);
   const [view, setView] = useState<View>({ kind: 'form' });
   const [running, setRunning] = useState(false);
   const [listTick, setListTick] = useState(0);
@@ -361,8 +363,22 @@ export function QueryScreen({ params }: { params: Params }) {
 
   const op = form.operation;
   const fields: FieldDef[] = [
-    { key: 'database', label: 'Database', kind: 'text' },
-    { key: 'collection', label: 'Collection', kind: 'text' },
+    {
+      key: 'database',
+      label: 'Database',
+      kind: 'combo',
+      suggestions: ns.databases,
+      suggestionsLoading: ns.loadingDatabases,
+      newValueLabel: 'not found',
+    },
+    {
+      key: 'collection',
+      label: 'Collection',
+      kind: 'combo',
+      suggestions: ns.collections,
+      suggestionsLoading: ns.loadingCollections,
+      newValueLabel: 'not found',
+    },
     {
       key: 'operation',
       label: 'Operation',

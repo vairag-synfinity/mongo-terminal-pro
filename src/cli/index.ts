@@ -34,7 +34,7 @@ export function buildProgram(): Command {
   program
     .name('mongo-terminal')
     .description(
-      'Mongo Terminal Pro — interactive MongoDB management in your terminal.\nRun without a command to open the interactive dashboard. Alias: mtp',
+      'Mongo Terminal Pro — interactive MongoDB management in your terminal.\nRun without a command to open the interactive dashboard. Alias: mtp\nMade by Vairag Kakadiya',
     )
     .version(packageVersion(), '-v, --version')
     .option('-c, --connection <name>', 'saved connection to use (name or id)')

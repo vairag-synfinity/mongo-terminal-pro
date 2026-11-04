@@ -27,6 +27,15 @@ export function HelpScreen() {
     '  Esc          back / cancel                Ctrl+C   quit (cleanly disconnects)',
     '  Q            quit                         Ctrl+X   dismiss notifications',
     '',
+    h('WORKSPACE (after connecting)'),
+    '  Left: database tree      ↑↓ move · → expand · ← collapse · Enter open · / filter · r refresh',
+    '  Right: tabs              Documents · Aggregations · Query · Indexes · Schema & Stats · Import · Export',
+    '  Tab                      sidebar → pane          Esc   pane → sidebar → connections',
+    '  [ ]                      previous / next tab     m menu · b backup · S statistics · , settings',
+    '',
+    h('FORMS: DATABASE AND COLLECTION FIELDS'),
+    '  Type a name, or press ↓ to pick from the existing ones (Enter to choose). New names are marked "+ new".',
+    '',
     h('LISTS'),
     '  ↑ ↓ / j k    move                         PgUp PgDn  page',
     '  Home End / g G  first / last              /        filter',
@@ -64,6 +73,9 @@ export function HelpScreen() {
     h('TERMINAL'),
     `  Colours: ${theme.noColor ? 'off' : ['none', '16', '256', 'truecolor'][caps.colorLevel]}   Symbols: ${symbols.unicode ? 'Unicode' : 'ASCII'}   Size: ${caps.columns}x${caps.rows}   Mouse wheel: ${settings.mouse ? 'on' : 'off (Settings)'}`,
     '  Use --ascii or --no-color if symbols or colours look wrong. NO_COLOR is respected.',
+    '',
+    h('ABOUT'),
+    '  Mongo Terminal Pro — made by Vairag Kakadiya. MIT licensed.',
   ];
   return (
     <Panel title="Keyboard shortcuts & help" focus>

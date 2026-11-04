@@ -29,6 +29,7 @@ import { SelectList } from '../components/select-list.js';
 import { cleanDroppedPath } from '../components/text-input.js';
 import { useAppState, useScreenActive, useUi } from '../context.js';
 import { useDraft } from '../hooks/use-draft.js';
+import { useNamespaceSuggestions } from '../hooks/use-namespaces.js';
 import { useHints, useLayout } from '../layouts/layout.js';
 import { col } from '../themes/theme.js';
 import { confirmOperation } from './confirm-operation.js';
@@ -91,6 +92,7 @@ export function ImportScreen({ params }: { params: { db?: string; collection?: s
     skipInvalid: false,
     writeErrorReport: true,
   }));
+  const ns = useNamespaceSuggestions(source.database);
   const [preview, setPreview] = useState<ImportPreview | undefined>();
   const [mapping, setMapping] = useState<CsvFieldMapping[] | undefined>();
   const [mappingIndex, setMappingIndex] = useState(0);
@@ -318,11 +320,21 @@ export function ImportScreen({ params }: { params: { db?: string; collection?: s
                 { label: 'BSON (mongodump)', value: 'bson' },
               ],
             },
-            { key: 'database', label: 'Target database', kind: 'text' },
+            {
+              key: 'database',
+              label: 'Target database',
+              kind: 'combo',
+              suggestions: ns.databases,
+              suggestionsLoading: ns.loadingDatabases,
+              newValueLabel: 'new database',
+            },
             {
               key: 'collection',
               label: 'Target collection',
-              kind: 'text',
+              kind: 'combo',
+              suggestions: ns.writableCollections,
+              suggestionsLoading: ns.loadingCollections,
+              newValueLabel: 'new collection',
               help: 'Created automatically if it does not exist',
             },
             {

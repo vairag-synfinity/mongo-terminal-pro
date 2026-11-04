@@ -1,21 +1,23 @@
 # Mongo Terminal Pro
 
 **A professional, keyboard-first MongoDB manager that runs entirely in your terminal.**
+Made by **Vairag Kakadiya**.
 Browse databases and documents, run queries and aggregation pipelines, manage indexes, import and
 export data, and back up and restore — on Windows, macOS and Linux, locally or over SSH.
 
 ```
-◆ MONGO TERMINAL PRO                                     ● Production  MongoDB 7.0.14 · replica-set
-Dashboard › shop › users Documents                                                   READ-ONLY
+◆ MONGO TERMINAL PRO by Vairag Kakadiya                       ● Local  MongoDB 7.0 · replica-set
+Connections › Local › shop › users                                                    READ-ONLY
 ──────────────────────────────────────────────────────────────────────────────────────────────────
-Filter: { status: "active" }
-╭─────────────────────────────────────────────╮╭─────────────────────────────────────────────────╮
-│ shop.users          1-20 of ~1,666 · 1/84   ││ Preview                                         │
-│ ❯ ObjectId('65a0…01')  name: "Ada"  age: 36 ││ ▾ {                                             │
-│   ObjectId('65a0…02')  name: "Linus" age: … ││     _id: ObjectId('65a0…01'),                   │
-│   …                                         ││     name: "Ada",                                │
-╰─────────────────────────────────────────────╯╰─────────────────────────────────────────────────╯
-←→ page │ Enter view │ f filter │ i insert │ e edit │ d delete │ c copy │ ? help │ W write
+╭──────────────────────╮ 1 Docs  2 Agg  3 Query  4 Idx  5 Schema  6 Imp  7 Exp   Alt+1-7 or [ ]
+│ ● Local              │Filter: { status: "active" }
+│ ▾ shop               │╭────────────────────────────────────╮╭─────────────────────────────────╮
+│    ▤ orders          ││ shop.users   1-20 of ~1,666 · 1/84 ││ Preview                         │
+│    ▤ users           ││ ❯ name: "Ada"  age: 36  city: …    ││ ▾ {                             │
+│    ◇ activeUsers     ││   name: "Linus"  age: 54  city: …  ││     _id: ObjectId('65a0…01'),   │
+│ ▸ analytics          ││   …                                ││     name: "Ada",                │
+╰──────────────────────╯╰────────────────────────────────────╯╰─────────────────────────────────╯
+←→ page │ Enter view │ f filter │ i insert │ e edit │ d delete │ c copy │ Alt+1-7 tabs │ Esc sidebar
 ```
 
 - npm package: `mongo-terminal-pro`
@@ -31,7 +33,7 @@ Filter: { status: "active" }
 - [Supported operating systems and terminals](#supported-operating-systems-and-terminals)
 - [Quick start](#quick-start)
 - [Connections](#connections) — manual, MongoDB Compass discovery, `.env` discovery, saved connections
-- [The interactive dashboard](#the-interactive-dashboard)
+- [The interactive UI](#the-interactive-ui)
 - [Import and export](#import-and-export)
 - [Backup and restore](#backup-and-restore)
 - [Security model](#security-model)
@@ -131,8 +133,8 @@ keyboard alone; mouse wheel scrolling is opt-in (`--mouse` or Settings).
 
 ```bash
 mtp                                   # open the dashboard
-# 11  Connection Manager → a (add) → fill the form → Test Connection → Save → Enter (connect)
-# 1   Database Explorer  → Enter on a database → Enter on a collection → View Documents
+# a  New connection → fill the form → Test Connection → Save → Enter (connect)
+# workspace opens: pick a database in the tree → → expand → Enter on a collection → Documents tab
 ```
 
 Or from the shell:
@@ -203,32 +205,43 @@ default · `x` disconnect. CLI equivalents: `mtp connections list|add|remove|ren
 
 ---
 
-## The interactive dashboard
+## The interactive UI
 
-```
-DATABASE MANAGEMENT        DATA MANAGEMENT          ADVANCED
- 1 Database Explorer        6 Import Data            9  Index Manager
- 2 Collection Explorer      7 Export Data            10 Database Statistics
- 3 Document Manager         8 Backup / Restore       11 Connection Manager
- 4 Query Builder                                     12 Settings
- 5 Aggregation Builder
-```
+The layout follows MongoDB Compass and NoSQLBooster:
 
-Global keys: `?` help · `W` toggle write access · `Esc` back · `Ctrl+C`/`Q` quit · `Ctrl+X` dismiss
-notifications. Lists: `↑↓`/`j k`, PgUp/PgDn, Home/End, `/` filter, digits for menu shortcuts.
+1. **Connections home** (start screen): every saved connection in a table with details, plus
+   quick actions — `a` new connection, `c` import from Compass, `v` from `.env`, `m` main menu,
+   `,` settings. Enter connects (or reopens the workspace of the active connection).
+2. **Workspace** (after connecting):
+   - **Left — database tree**: databases with their collections (`▤` collection, `◇` view).
+     `↑↓` move · `→`/Enter expand or open · `←` collapse · `/` filter (also finds collections in
+     databases you have not expanded) · `r` refresh · Tab to the pane · Esc back to connections.
+   - **Right — pane**: no selection shows all databases with statistics; a database shows its
+     collections (create/drop, sizes, index counts); a collection opens **tabs**:
+     `1 Documents` · `2 Aggregations` · `3 Query` · `4 Indexes` · `5 Schema & Stats` · `6 Import` ·
+     `7 Export`. Switch with **Alt+1…7** (works while typing), Alt+←/→, or `[` `]`.
+     Esc returns to the tree.
+   - From the tree: `m` main menu (all tools), `b` backup/restore, `S` server statistics,
+     `,` settings.
+3. **Pick or type**: database and collection fields (Import, Export, Query, Backup) list the
+   existing names — type to filter, `↓` to choose, Enter to accept — or type a new name, which is
+   marked `+ new`.
 
-**Documents:** `←→` page · Enter tree view · `f` filter · `s` sort · `o` projection · `z` page size ·
+Global keys: `?` help · `W` toggle write access · `Ctrl+C`/`Q` quit · `Ctrl+X` dismiss notifications.
+Narrow terminals (< 90 columns) show the tree and the pane one at a time.
+
+**Documents tab:** `←→` page · Enter tree view · `f` filter · `s` sort · `o` projection · `z` page size ·
 `i` insert · `e` edit · `E` edit in `$EDITOR` · `u` duplicate · `d` delete · `c` copy · `x` export
 results · `r` refresh. Editors accept shell syntax and validate before saving (`Ctrl+S`).
 
-**Query builder:** Tab between fields, `Ctrl+R` run. Destructive operations show how many documents
+**Query tab:** Tab between fields, `Ctrl+R` run. Destructive operations show how many documents
 will be affected and require confirmation (typing the connection name for production, or for
 `updateMany`/`deleteMany` with an empty filter).
 
-**Aggregation:** `a` add stage from templates, Enter edit, `x` remove, `K`/`J` reorder, Space
+**Aggregations tab:** `a` add stage from templates, Enter edit, `x` remove, `K`/`J` reorder, Space
 enable/disable, `v` pipeline JSON, `p` paste a pipeline, `s` save, `l` load, `Ctrl+R` run.
 
----
+The classic **main menu** (`m`) still offers every tool in one list.
 
 ## Import and export
 
@@ -435,6 +448,10 @@ npm pack --dry-run                 # inspect the tarball (dist, docs, README, LI
 npm publish                        # publishConfig.access = public
 ```
 
+## Author
+
+Made by **Vairag Kakadiya**.
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2026 Vairag Kakadiya

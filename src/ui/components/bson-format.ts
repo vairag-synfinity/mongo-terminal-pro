@@ -133,7 +133,10 @@ export function inlinePreview(value: unknown, maxWidth: number): string {
 /** Single-line document summary used in document lists: _id first, then leading fields. */
 export function documentSummary(doc: Document, maxWidth: number): string {
   const parts: string[] = [];
-  if ('_id' in doc) parts.push(formatScalar(doc._id));
+  // In narrow lists an ObjectId would fill the whole row; show the fields instead (the preview
+  // and detail views still show the _id).
+  const hasOtherFields = Object.keys(doc).some((k) => k !== '_id');
+  if ('_id' in doc && (maxWidth >= 70 || !hasOtherFields)) parts.push(formatScalar(doc._id));
   for (const [k, v] of Object.entries(doc)) {
     if (k === '_id') continue;
     parts.push(`${k}: ${inlinePreview(v, 40)}`);

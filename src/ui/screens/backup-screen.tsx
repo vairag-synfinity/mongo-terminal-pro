@@ -30,6 +30,7 @@ import { cleanDroppedPath } from '../components/text-input.js';
 import { useAppState, useScreenActive, useUi } from '../context.js';
 import { useAsync } from '../hooks/use-async.js';
 import { useDraft } from '../hooks/use-draft.js';
+import { useNamespaceSuggestions } from '../hooks/use-namespaces.js';
 import { useHints, useLayout } from '../layouts/layout.js';
 import { col } from '../themes/theme.js';
 import { confirmOperation } from './confirm-operation.js';
@@ -78,6 +79,7 @@ export function BackupScreen({ params }: { params: { db?: string } }) {
     dryRun: false,
     nsInclude: '',
   }));
+  const ns = useNamespaceSuggestions(backupForm.database);
   const active = screenActive && !dialog.open;
   const busy = phase === 'running';
 
@@ -415,8 +417,24 @@ export function BackupScreen({ params }: { params: { db?: string } }) {
     ) : (
       <Form
         fields={[
-          { key: 'database', label: 'Database', kind: 'text', placeholder: '(all databases)' },
-          { key: 'collection', label: 'Collection', kind: 'text', placeholder: '(all collections)' },
+          {
+            key: 'database',
+            label: 'Database',
+            kind: 'combo',
+            suggestions: ns.databases,
+            suggestionsLoading: ns.loadingDatabases,
+            newValueLabel: 'not found',
+            placeholder: '(all databases)',
+          },
+          {
+            key: 'collection',
+            label: 'Collection',
+            kind: 'combo',
+            suggestions: ns.collections,
+            suggestionsLoading: ns.loadingCollections,
+            newValueLabel: 'not found',
+            placeholder: '(all collections)',
+          },
           { key: 'gzip', label: 'Compress (gzip)', kind: 'toggle' },
           {
             key: 'archive',
@@ -464,7 +482,13 @@ export function BackupScreen({ params }: { params: { db?: string } }) {
             placeholder: 'e.g. shop.users, shop.*',
           },
           { key: 'fromDb', label: 'Rename: from db', kind: 'text' },
-          { key: 'toDb', label: 'Rename: to db', kind: 'text' },
+          {
+            key: 'toDb',
+            label: 'Rename: to db',
+            kind: 'combo',
+            suggestions: ns.databases,
+            newValueLabel: 'new database',
+          },
           {
             key: 'drop',
             label: 'Drop existing first',

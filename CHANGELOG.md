@@ -3,6 +3,30 @@
 All notable changes to this project are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-04
+
+### Added
+
+- Compass / NoSQLBooster-style **workspace** after connecting: database tree on the left (lazy
+  collection loading, filter across databases, refresh) and a tabbed collection pane on the right
+  (Documents, Aggregations, Query, Indexes, Schema & Stats, Import, Export). Tabs switch with
+  Alt+1…7, Alt+←/→ or `[` `]`.
+- **Connections home** as the start screen: connection table, details panel, quick actions and a
+  welcome chooser when no connection exists yet.
+- **Pick-or-type** database and collection fields in Import, Export, Query and Backup/Restore:
+  existing names are listed and filtered as you type; new names are marked.
+- "Made by Vairag Kakadiya" in the header, home screen, help, CLI help and package metadata.
+
+### Changed
+
+- Panel titles truncate before right-hand status text; narrow document lists show fields instead
+  of the `_id`; side-by-side layouts are used from ~90 columns inside the workspace.
+- The main menu is now opened with `m` from the connections home or the workspace (Esc goes back).
+
+### Fixed
+
+- Views are no longer offered as import targets.
+
 ## [1.0.0] - 2026-11-03
 
 ### Added

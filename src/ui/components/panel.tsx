@@ -30,11 +30,22 @@ export function Panel({ title, focus, width, height, flexGrow, children, right }
       overflow="hidden"
     >
       {title || right ? (
-        <Box justifyContent="space-between">
-          <Text bold color={col(theme, focus ? theme.colors.borderFocus : theme.colors.title)}>
-            {title ? truncate(title, 60) : ''}
-          </Text>
-          {right ? <Text color={col(theme, theme.colors.muted)}>{truncate(right, 40)}</Text> : null}
+        <Box justifyContent="space-between" flexShrink={0} gap={1}>
+          {/* The title gives way first; the right-hand status (e.g. "page 2/5") keeps its width. */}
+          <Box flexShrink={1} flexGrow={1} overflow="hidden">
+            <Text
+              bold
+              wrap="truncate-end"
+              color={col(theme, focus ? theme.colors.borderFocus : theme.colors.title)}
+            >
+              {title ? truncate(title, 60) : ''}
+            </Text>
+          </Box>
+          {right ? (
+            <Box flexShrink={0}>
+              <Text color={col(theme, theme.colors.muted)}>{truncate(right, 40)}</Text>
+            </Box>
+          ) : null}
         </Box>
       ) : null}
       {children}

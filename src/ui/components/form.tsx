@@ -6,7 +6,8 @@ import { col } from '../themes/theme.js';
 import { TextArea } from './text-area.js';
 import { TextInput } from './text-input.js';
 
-export type FieldKind = 'text' | 'password' | 'number' | 'select' | 'toggle' | 'textarea';
+/** 'combo' = free text with a list of existing values to pick from (e.g. database names). */
+export type FieldKind = 'text' | 'password' | 'number' | 'select' | 'toggle' | 'textarea' | 'combo';
 
 export interface FieldOption {
   label: string;
@@ -24,6 +25,24 @@ export interface FieldDef {
   disabled?: boolean;
   /** Rows for textarea fields. */
   rows?: number;
+  /** Existing values offered by combo fields. */
+  suggestions?: string[];
+  suggestionsLoading?: boolean;
+  /** Label for values not in the suggestions (combo), e.g. "new collection". */
+  newValueLabel?: string;
+}
+
+const MAX_SUGGESTIONS = 6;
+
+/** Suggestions matching the typed text (case-insensitive substring), best matches first. */
+export function matchSuggestions(suggestions: string[] | undefined, typed: string): string[] {
+  if (!suggestions?.length) return [];
+  const q = typed.trim().toLowerCase();
+  if (suggestions.some((s) => s === typed)) return [];
+  const hits = q ? suggestions.filter((s) => s.toLowerCase().includes(q)) : suggestions;
+  return [...hits].sort(
+    (a, b) => Number(!a.toLowerCase().startsWith(q)) - Number(!b.toLowerCase().startsWith(q)),
+  );
 }
 
 export interface FormAction {
@@ -72,12 +91,20 @@ export function Form({
   const total = visibleFields.length + 1; // +1 = actions row
   const [index, setIndex] = useState(0);
   const [actionIndex, setActionIndex] = useState(0);
+  // Highlighted suggestion of the active combo field (-1 = none, typing mode).
+  const [suggestIndex, setSuggestIndex] = useState(-1);
 
   useEffect(() => {
     if (index >= total) setIndex(total - 1);
   }, [index, total]);
 
+  useEffect(() => setSuggestIndex(-1), [index]);
+
   const field = visibleFields[index];
+  const comboMatches =
+    field?.kind === 'combo'
+      ? matchSuggestions(field.suggestions, String(values[field.key] ?? '')).slice(0, MAX_SUGGESTIONS)
+      : [];
   const onActions = index === visibleFields.length;
   const next = () => setIndex((i) => Math.min(total - 1, i + 1));
   const prev = () => setIndex((i) => Math.max(0, i - 1));
@@ -103,6 +130,19 @@ export function Form({
         return;
       }
       if (field?.kind === 'textarea') return; // the editor owns arrows/enter
+      if (field?.kind === 'combo' && comboMatches.length > 0) {
+        // ↓/↑ walk through the existing values; leaving the list continues to the next field.
+        if (key.downArrow) {
+          if (suggestIndex < comboMatches.length - 1) setSuggestIndex((i) => i + 1);
+          else next();
+          return;
+        }
+        if (key.upArrow) {
+          if (suggestIndex >= 0) setSuggestIndex((i) => i - 1);
+          else prev();
+          return;
+        }
+      }
       if (key.upArrow) return prev();
       if (key.downArrow) return next();
       if (onActions) {
@@ -146,7 +186,10 @@ export function Form({
   const inputWidth = Math.max(10, width - labelWidth - 4);
   const maxRows = height ?? 1000;
   // Scroll so the focused field is visible (textareas count as multiple rows).
-  const rowsOf = (f: FieldDef) => (f.kind === 'textarea' ? (f.rows ?? 4) : 1) + (errors[f.key] ? 1 : 0);
+  const rowsOf = (f: FieldDef) =>
+    (f.kind === 'textarea' ? (f.rows ?? 4) : 1) +
+    (errors[f.key] ? 1 : 0) +
+    (f === field && f.kind === 'combo' && focus ? comboMatches.length + 1 : 0);
   let start = 0;
   let used = 0;
   for (let i = Math.min(index, visibleFields.length - 1); i >= 0; i--) {
@@ -216,6 +259,36 @@ export function Form({
               </Box>
             );
             break;
+          case 'combo': {
+            const text = String(value ?? '');
+            const known = f.suggestions?.includes(text);
+            control = (
+              <Box>
+                <TextInput
+                  value={text}
+                  onChange={(v) => {
+                    setSuggestIndex(-1);
+                    onChange(f.key, v);
+                  }}
+                  focus={active && !f.disabled}
+                  placeholder={f.placeholder}
+                  width={Math.max(10, inputWidth - 14)}
+                  onSubmit={() => {
+                    const picked = comboMatches[suggestIndex];
+                    if (active && picked !== undefined) onChange(f.key, picked);
+                    setSuggestIndex(-1);
+                    next();
+                  }}
+                />
+                {text ? (
+                  <Text color={col(theme, known ? theme.colors.success : theme.colors.warning)}>
+                    {known ? ` ${symbols.check} existing` : ` + ${f.newValueLabel ?? 'new'}`}
+                  </Text>
+                ) : null}
+              </Box>
+            );
+            break;
+          }
           default:
             control = f.disabled ? (
               <Text color={col(theme, theme.colors.muted)}>{String(value ?? '')}</Text>
@@ -247,6 +320,29 @@ export function Form({
                 {' '.repeat(labelWidth)}
                 {truncate(errors[f.key] ?? '', inputWidth)}
               </Text>
+            ) : null}
+            {active && f.kind === 'combo' && (comboMatches.length > 0 || f.suggestionsLoading) ? (
+              <Box flexDirection="column" marginLeft={labelWidth}>
+                {f.suggestionsLoading && comboMatches.length === 0 ? (
+                  <Text color={col(theme, theme.colors.muted)}>loading existing names…</Text>
+                ) : (
+                  <Text color={col(theme, theme.colors.muted)}>
+                    {symbols.arrowDown} choose existing (
+                    {matchSuggestions(f.suggestions, String(value ?? '')).length}) · or type a new name
+                  </Text>
+                )}
+                {comboMatches.map((m, mi) => (
+                  <Box key={m} flexShrink={0}>
+                    <Text
+                      inverse={mi === suggestIndex}
+                      color={col(theme, mi === suggestIndex ? theme.colors.accent : theme.colors.text)}
+                    >
+                      {mi === suggestIndex ? `${symbols.pointer} ` : '  '}
+                      {truncate(m, inputWidth - 2)}
+                    </Text>
+                  </Box>
+                ))}
+              </Box>
             ) : null}
             {active && f.help ? (
               <Text color={col(theme, theme.colors.muted)}>

@@ -12,7 +12,7 @@ import {
 import { DataTable, layoutColumns, type Column } from '../../src/ui/components/data-table.js';
 import { ConfirmDialog } from '../../src/ui/components/dialog.js';
 import { KeyHints } from '../../src/ui/components/feedback.js';
-import { Form } from '../../src/ui/components/form.js';
+import { Form, matchSuggestions } from '../../src/ui/components/form.js';
 import { JsonView } from '../../src/ui/components/json-view.js';
 import { Panel } from '../../src/ui/components/panel.js';
 import { SelectList } from '../../src/ui/components/select-list.js';
@@ -410,6 +410,67 @@ describe('text editing', () => {
     await tick();
     expect(onSubmit).toHaveBeenCalledWith('{\n  a: {\n    b: 1\n}');
     expect(lastFrame()).toContain('3     b: 1');
+  });
+});
+
+describe('pick-or-type (combo) fields', () => {
+  it('matches suggestions case-insensitively, prefix matches first', () => {
+    expect(matchSuggestions(['users', 'orders', 'archived_users'], 'US')).toEqual([
+      'users',
+      'archived_users',
+    ]);
+    expect(matchSuggestions(['users'], 'users')).toEqual([]); // exact value chosen: list closes
+    expect(matchSuggestions(undefined, 'x')).toEqual([]);
+    expect(matchSuggestions(['a', 'b'], '')).toEqual(['a', 'b']);
+  });
+
+  function ComboHarness({ onValue }: { onValue(v: string): void }) {
+    const [values, setValues] = useState<Record<string, unknown>>({ coll: '' });
+    return (
+      <Form
+        fields={[
+          {
+            key: 'coll',
+            label: 'Collection',
+            kind: 'combo',
+            suggestions: ['users', 'orders', 'user_logs'],
+            newValueLabel: 'new collection',
+          },
+        ]}
+        values={values}
+        onChange={(k, v) => {
+          setValues((s) => ({ ...s, [k]: v }));
+          onValue(String(v));
+        }}
+        focus
+        width={70}
+        actions={[]}
+      />
+    );
+  }
+
+  it('lets the user pick an existing value with ↓ and Enter, or type a new one', async () => {
+    const onValue = vi.fn();
+    const { stdin, lastFrame } = render(
+      <TestProviders>
+        <ComboHarness onValue={onValue} />
+      </TestProviders>,
+    );
+    await tick();
+    stdin.write('u');
+    await tick();
+    expect(lastFrame()).toContain('choose existing (2)');
+    expect(lastFrame()).toContain('user_logs');
+    expect(lastFrame()).not.toContain('orders');
+    expect(lastFrame()).toContain('+ new collection');
+    stdin.write(KEYS.down);
+    await tick();
+    stdin.write(KEYS.down);
+    await tick();
+    stdin.write(KEYS.enter);
+    await tick();
+    expect(onValue).toHaveBeenLastCalledWith('user_logs');
+    expect(lastFrame()).toContain('existing');
   });
 });
 

@@ -25,6 +25,7 @@ import { Form } from '../components/form.js';
 import { Panel } from '../components/panel.js';
 import { useAppState, useScreenActive, useUi } from '../context.js';
 import { useDraft } from '../hooks/use-draft.js';
+import { useNamespaceSuggestions } from '../hooks/use-namespaces.js';
 import { useHints, useLayout } from '../layouts/layout.js';
 import { col } from '../themes/theme.js';
 
@@ -78,6 +79,7 @@ export function ExportScreen({ params }: { params: Params }) {
       batchSize: String(settings.exportBatchSize),
     }),
   );
+  const ns = useNamespaceSuggestions(form.database);
   const [step, setStep] = useState<Step>('form');
   const [progress, setProgress] = useState<TransferProgress | undefined>();
   const [summary, setSummary] = useState<ExportSummary | undefined>();
@@ -241,7 +243,14 @@ export function ExportScreen({ params }: { params: Params }) {
     <Panel title="Export" right={`default folder: ${truncate(baseDir, 40)}`} focus>
       <Form
         fields={[
-          { key: 'database', label: 'Database', kind: 'text' },
+          {
+            key: 'database',
+            label: 'Database',
+            kind: 'combo',
+            suggestions: ns.databases,
+            suggestionsLoading: ns.loadingDatabases,
+            newValueLabel: 'not found',
+          },
           {
             key: 'scope',
             label: 'Scope',
@@ -251,7 +260,15 @@ export function ExportScreen({ params }: { params: Params }) {
               { label: 'entire database (one file per collection)', value: 'database' },
             ],
           },
-          { key: 'collection', label: 'Collection', kind: 'text', hidden: form.scope !== 'collection' },
+          {
+            key: 'collection',
+            label: 'Collection',
+            kind: 'combo',
+            suggestions: ns.collections,
+            suggestionsLoading: ns.loadingCollections,
+            newValueLabel: 'not found',
+            hidden: form.scope !== 'collection',
+          },
           {
             key: 'format',
             label: 'Format',

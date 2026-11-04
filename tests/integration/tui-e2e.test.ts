@@ -26,16 +26,22 @@ const ptyAvailable = process.platform !== 'win32' && Boolean(findExecutable('scr
 describe.skipIf(!ptyAvailable)('TUI (offline) in a pseudo-terminal', () => {
   const env = () => ({ MTP_CONFIG_DIR: tmpDir(), MTP_DATA_DIR: tmpDir(), MTP_DISABLE_KEYRING: '1' });
 
-  it('renders the dashboard, navigates and quits cleanly with Ctrl+C', async () => {
+  it('opens on the connections home, navigates and quits cleanly with Ctrl+C', async () => {
     const s = new PtySession([], { env: env(), cols: 100, rows: 30 });
     try {
-      const screen = await s.waitFor('Main menu');
+      let screen = await s.waitFor('Welcome');
       expect(screen).toContain('MONGO TERMINAL PRO');
+      expect(screen).toContain('Made by Vairag Kakadiya');
+      expect(screen).toContain('Import from MongoDB Compass');
+      await s.press('m', 800);
+      screen = await s.waitFor('Main menu');
       expect(screen).toContain('connect first');
       await s.press('12', 900);
       await s.waitFor('Settings');
       await s.press(KEYS.esc, 300);
       await s.waitFor('Main menu');
+      await s.press(KEYS.esc, 300);
+      await s.waitFor('Welcome');
       await s.press('?', 300);
       await s.waitFor('Keyboard shortcuts');
       s.write(KEYS.ctrlC);
@@ -48,7 +54,7 @@ describe.skipIf(!ptyAvailable)('TUI (offline) in a pseudo-terminal', () => {
   it('adapts to small terminals and ASCII / no-colour mode', async () => {
     const s = new PtySession(['--ascii', '--no-color'], { env: env(), cols: 60, rows: 16 });
     try {
-      const screen = await s.waitFor('Main menu');
+      const screen = await s.waitFor('Welcome');
       expect(screen).toMatch(/\+-{10,}/);
       expect(screen).not.toMatch(/[╭│❯●]/);
       // eslint-disable-next-line no-control-regex
@@ -107,15 +113,19 @@ describe.skipIf(!ptyAvailable || !integrationEnabled())('TUI against MongoDB in 
   it('connects, browses documents with pagination and enforces read-only mode', async () => {
     const s = new PtySession(['-c', 'E2E'], { env, cols: 120, rows: 34 });
     try {
-      await s.waitFor('READ-ONLY', 20_000);
-      await s.press('3', 1200);
-      await s.waitFor('Select database');
+      // Connecting opens the workspace: database tree on the left.
+      await s.waitFor('database(s)', 20_000);
+      await s.waitFor('READ-ONLY');
       await s.press('/');
       await s.type(db);
-      await s.press([KEYS.enter, KEYS.enter], 1200);
-      await s.waitFor('Select collection');
-      await s.press(KEYS.enter, 1500);
+      await s.press(KEYS.enter, 300);
+      await s.press(KEYS.right, 1500); // expand the database
+      await s.waitFor('things');
+      await s.press(KEYS.down, 300);
+      await s.press(KEYS.enter, 1500); // open the collection → Documents tab
       let screen = await s.waitFor('page 1/3');
+      expect(screen).toContain('Docs');
+      expect(screen).toContain(`${db} › things`);
       expect(screen).toContain('thing-0');
       await s.press(KEYS.right, 1000);
       screen = await s.waitFor('page 2/3');

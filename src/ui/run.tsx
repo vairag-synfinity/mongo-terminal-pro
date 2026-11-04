@@ -47,16 +47,16 @@ export async function runTui(app: Application, options: RunOptions): Promise<voi
   const mouseEnabled = Boolean(options.overrides.mouse ?? settings.mouse) && caps.mouseCapable;
   const mouse = createMouseBus(mouseEnabled);
 
-  // The dashboard is always the root so Esc / "home" lead back to it.
-  const dashboard: Route = { screen: 'dashboard', params: {}, key: 1 };
-  let initial: Route[] = [dashboard];
+  // Like Compass, the app opens on the connection list; connecting opens the workspace on top.
+  const home: Route = { screen: 'connections', params: {}, key: 1 };
+  let initial: Route[] = [home];
   const requested = options.initialScreen as ScreenName | undefined;
-  if (requested && requested !== 'dashboard' && SCREENS.includes(requested))
-    initial = [dashboard, { screen: requested, params: {}, key: 2 }];
+  if (requested && requested !== 'connections' && SCREENS.includes(requested))
+    initial = [home, { screen: requested, params: {}, key: 2 }];
   if (options.connectionName) {
     const profile = await app.connections.findByName(options.connectionName);
     if (!profile) throw new AppError(`No saved connection named "${options.connectionName}"`, 'NOT_FOUND');
-    initial = [dashboard, { screen: 'connections', params: { autoConnect: profile.id }, key: 2 }];
+    initial = [{ screen: 'connections', params: { autoConnect: profile.id }, key: 1 }];
   }
 
   const onData = (data: Buffer) => {

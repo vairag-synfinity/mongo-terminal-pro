@@ -52,6 +52,7 @@ const SCREEN_LABELS: Record<Route['screen'], string> = {
   settings: 'Settings',
   help: 'Help',
   picker: 'Select',
+  workspace: 'Workspace',
 };
 
 export function routeLabel(route: Route): string {
@@ -83,7 +84,16 @@ export function Header({ width, compact }: { width: number; compact: boolean }) 
   const connText = state.connected
     ? `${state.connectionName}${server && !compact ? `  ${server.isAtlas ? 'Atlas' : 'MongoDB'} ${server.version} · ${server.topology}` : ''}`
     : 'Not connected';
-  const crumbs = nav.stack.map(routeLabel).join(` ${symbols.separator} `);
+  // In the workspace the breadcrumb shows where you are: connection › database › collection.
+  const crumbs = nav.stack
+    .map((r) =>
+      r.screen === 'workspace'
+        ? [state.connectionName ?? 'Workspace', state.database, state.collection]
+            .filter(Boolean)
+            .join(` ${symbols.separator} `)
+        : routeLabel(r),
+    )
+    .join(` ${symbols.separator} `);
   const mode = !state.connected
     ? undefined
     : state.readOnlyLocked
@@ -99,6 +109,7 @@ export function Header({ width, compact }: { width: number; compact: boolean }) 
         <Text bold color={col(theme, theme.colors.title)}>
           {symbols.unicode ? '◆ ' : ''}
           {title}
+          {width >= 100 ? <Text color={col(theme, theme.colors.muted)}> by Vairag Kakadiya</Text> : null}
         </Text>
         <Text>
           <Text color={statusDot}>{symbols.bullet} </Text>
